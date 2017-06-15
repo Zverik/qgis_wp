@@ -1,0 +1,27 @@
+[general]
+name=Walking Papers
+email=ilya@zverev.info
+author=Ilya Zverev
+qgisMinimumVersion=2.14
+qgisMaximumVersion=2.99
+version=0.1
+repository=https://github.com/zverik/qgis_wp
+tracker=https://github.com/zverik/qgis_wp/issues
+
+description=This is an example plugin for greeting the world.
+    Multiline is allowed:
+    lines starting with spaces belong to the same
+    field, in this case to the "description" field.
+    HTML formatting is not allowed.
+about=This paragraph can contain a detailed description
+    of the plugin. Multiline is allowed, HTML is not.
+changelog=The changelog lists the plugin versions
+    and their changes as in the example below:
+    1.0 - First stable release
+    0.9 - All features implemented
+    0.8 - First testing release
+
+tags=walking papers,openstreetmap
+homepage=https://github.com/zverik/qgis_wp
+; icon=icon.png
+experimental=True
