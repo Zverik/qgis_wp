@@ -1,17 +1,20 @@
-from PyQt4.QtCore import QVariant
-from PyQt4.QtGui import QMenu, QAction, QIcon, QColor
+from PyQt4.QtCore import QVariant, QRectF
+from PyQt4.QtGui import QMenu, QAction, QIcon, QColor, QFont
 from qgis.core import (
     QgsField,
     QgsMapLayerRegistry,
     QgsVectorLayer,
     QgsFillSymbolV2,
     QgsPalLayerSettings,
-    QgsMessageLog,
+    QgsComposerMap,
+    QgsComposerLabel,
+    QgsComposerObject,
 )
 from processing import runalg
 
 
-PIE_LAYER = 'pie'
+PIE_LAYER = 'sheets'
+PLAN_LAYER = 'pie'
 ROTATION_FIELD = 'rotation'
 NAME_FIELD = 'name'
 
@@ -25,23 +28,46 @@ class WalkingPapersPlugin:
         self.menu.setObjectName("wpMenu")
         self.menu.setTitle("Walking Papers")
 
-        styleAction = QAction(QIcon(":/plugins/testplug/icon.png"), "Style OSM Data", self.iface.mainWindow())
-        styleAction.setObjectName("styleOSM")
-        styleAction.setStatusTip('Takes "lines" and "multipolygon" layers and prepares a Walking Papers style')
-        styleAction.triggered.connect(self.styleOSM)
-        self.menu.addAction(styleAction)
+        downloadAction = QAction(QIcon(":/plugins/testplug/icon.png"),
+                                 "Download OSM Data", self.iface.mainWindow())
+        downloadAction.setObjectName("downloadOSM")
+        downloadAction.setStatusTip(
+            'Downloads data from OpenStreetMap and styles it.')
+        downloadAction.triggered.connect(self.downloadOSM)
+        self.menu.addAction(downloadAction)
 
-        prepareAction = QAction(QIcon(":/plugins/testplug/icon.png"), "Create Pie Layer and Prepare Atlas", self.iface.mainWindow())
-        prepareAction.setObjectName("makePie")
-        prepareAction.setStatusTip('Creates a "{}" layer and prepares an atlas in map composer to use it'.format(PIE_LAYER))
-        prepareAction.triggered.connect(self.preparePie)
-        self.menu.addAction(prepareAction)
+        openAction = QAction(QIcon(":/plugins/testplug/icon.png"),
+                             "Open OSM Data", self.iface.mainWindow())
+        openAction.setObjectName("openOSM")
+        openAction.setStatusTip(
+            'Converts OSM data, loads and styles it for walking papers')
+        openAction.triggered.connect(self.openOSM)
+        self.menu.addAction(openAction)
 
-        rotateAction = QAction(QIcon(":/plugins/testplug/icon.png"), "Calculate Pie Rotation", self.iface.mainWindow())
+        pieAction = QAction(QIcon(":/plugins/testplug/icon.png"),
+                            "Create Pie Layers", self.iface.mainWindow())
+        pieAction.setObjectName("makePie")
+        pieAction.setStatusTip(
+            'Creates a "{}" and "{}" layers'.format(PIE_LAYER, PLAN_LAYER))
+        pieAction.triggered.connect(self.createPie)
+        self.menu.addAction(pieAction)
+
+        rotateAction = QAction(QIcon(":/plugins/testplug/icon.png"),
+                               "Calculate Pie Rotation", self.iface.mainWindow())
         rotateAction.setObjectName("calcRotation")
-        rotateAction.setStatusTip('Adds or updates a "{}" column with degrees. Requires a "{}" layer.'.format(ROTATION_FIELD, PIE_LAYER))
+        rotateAction.setStatusTip(
+            'Adds or updates a "{}" column with degrees.'
+            'Requires a "{}" layer.'.format(ROTATION_FIELD, PIE_LAYER))
         rotateAction.triggered.connect(self.calcRotation)
         self.menu.addAction(rotateAction)
+
+        atlasAction = QAction(QIcon(":/plugins/testplug/icon.png"),
+                              "Prepare Atlas", self.iface.mainWindow())
+        atlasAction.setObjectName("makeAtlas")
+        atlasAction.setStatusTip(
+            'Creates an atlas in map composer to print walking papers'.format(PIE_LAYER))
+        atlasAction.triggered.connect(self.createAtlas)
+        self.menu.addAction(atlasAction)
 
         self.iface.pluginMenu().addMenu(self.menu)
 
@@ -51,11 +77,13 @@ class WalkingPapersPlugin:
     def calcRotation(self):
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
-            self.iface.messageBar().pushCritical('No layer', 'Please add "{}" layer.'.format(PIE_LAYER))
+            self.iface.messageBar().pushCritical(
+                'No layer', 'Please add "{}" layer.'.format(PIE_LAYER))
             return
         pie = pies[0]
         if not pie.featureCount():
-            self.iface.messageBar().pushInfo('No data', 'No features in the "{}" layer.'.format(PIE_LAYER))
+            self.iface.messageBar().pushInfo(
+                'No data', 'No features in the "{}" layer.'.format(PIE_LAYER))
             return
 
         rotIndex = pie.dataProvider().fieldNameIndex(ROTATION_FIELD)
@@ -67,7 +95,8 @@ class WalkingPapersPlugin:
         boxes = runalg('qgis:orientedminimumboundingbox', pie, True, None)
         boxesLayer = QgsVectorLayer(boxes['OUTPUT'], 'boxes_tmp', 'ogr')
         if not boxesLayer.isValid():
-            self.iface.messageBar().pushCritical('Access error', 'Failed to load a temporary processing layer.')
+            self.iface.messageBar().pushCritical(
+                'Access error', 'Failed to load a temporary processing layer.')
             return
 
         iterbox = boxesLayer.getFeatures()
@@ -80,18 +109,56 @@ class WalkingPapersPlugin:
         self.iface.messageBar().pushSuccess('Done', 'Pie rotation values were updated.')
 
     def createAtlas(self):
-        self.iface.messageBar().pushWarning('Not implemented', 'Creating atlas is yet to be implemented.')
+        pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
+        if not pies:
+            self.iface.messageBar().pushCritical(
+                'No layer', 'Please add "{}" layer.'.format(PIE_LAYER))
+            return
+        pie = pies[0]
 
-    def styleOSM(self):
-        QgsMessageLog.logMessage("message", "name")
-        self.iface.messageBar().pushWarning('Not implemented', 'Styling OSM data is yet to be implemented.')
+        # delete pie composer views if present
+        # TODO: Does not work
+        for c in self.iface.activeComposers():
+            if c.windowTitle() == 'pie':
+                self.iface.deleteComposer(c)
+
+        # initialize composer
+        view = self.iface.createNewComposer()
+        comp = view.composition()
+        comp.setPaperSize(210, 297)
+
+        # a map and a label
+        atlasMap = QgsComposerMap(comp, 10, 10, 190, 277)
+        atlasMap.setId('Map')
+        atlasMap.setAtlasDriven(True)
+        atlasMap.setAtlasMargin(0)
+        atlasMap.setDataDefinedProperty(QgsComposerObject.MapRotation, True, False, '', 'rotation')
+        comp.addComposerMap(atlasMap)
+
+        label = QgsComposerLabel(comp)
+        label.setId('Label')
+        label.setSceneRect(QRectF(10, 10, 50, 10))
+        label.setText('[% "name" %]')
+        label.setMargin(0)
+        font = QFont('PT Sans Caption', 14, QFont.Bold)
+        label.setFont(font)
+        label.setFontColor(QColor('#0000aa'))
+        comp.addComposerLabel(label)
+
+        # setup atlas
+        atlas = comp.atlasComposition()
+        atlas.setCoverageLayer(pie)
+        atlas.setEnabled(True)
+        atlas.setHideCoverage(True)
 
     def addFieldToLayer(self, layer, name, typ):
         if layer.dataProvider().fieldNameIndex(name) < 0:
             layer.dataProvider().addAttributes([QgsField(name, typ)])
             layer.updateFields()
             if layer.dataProvider().fieldNameIndex(name) < 0:
-                self.iface.messageBar().pushCritical('Access error', 'Failed to add a "{}" field to the "{}" layer.'.format(name, layer.layerName()))
+                self.iface.messageBar().pushCritical(
+                    'Access error',
+                    'Failed to add a "{}" field to the "{}" layer.'.format(name, layer.layerName()))
                 return False
         return True
 
@@ -128,6 +195,18 @@ class WalkingPapersPlugin:
 
         self.iface.mapCanvas().refresh()
 
-    def preparePie(self):
-        self.createPie()
-        self.createAtlas()
+    def styleOSM(self):
+        self.iface.messageBar().pushWarning(
+            'Not implemented', 'Styling OSM data is yet to be implemented.')
+
+    def openOSM(self, filename=None):
+        """Converts an OSM file to GeoPackage, loads and styles it."""
+        self.iface.messageBar().pushWarning(
+            'Not implemented', 'Opening OSM data is yet to be implemented.')
+
+    def downloadOSM(self):
+        """Creates a polygon layer if not present, otherwise
+        downloads data from overpass based on polygons.
+        Then calls openOSM() to convert them to GeoPackage and style."""
+        self.iface.messageBar().pushWarning(
+            'Not implemented', 'Downloading OSM data is yet to be implemented.')
