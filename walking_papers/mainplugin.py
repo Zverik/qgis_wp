@@ -1,5 +1,5 @@
 from PyQt4.QtCore import QVariant, QRectF
-from PyQt4.QtGui import QMenu, QAction, QIcon, QColor, QFont
+from PyQt4.QtGui import QMenu, QAction, QIcon, QColor, QFont, QFileDialog
 from qgis.core import (
     QgsField,
     QgsMapLayerRegistry,
@@ -11,15 +11,30 @@ from qgis.core import (
     QgsComposerObject,
 )
 from processing import runalg
+from processing.tools.system import isWindows
+from processing.algs.gdal.GdalUtils import GdalUtils
+import os
 
 
 PIE_LAYER = 'sheets'
 PLAN_LAYER = 'pie'
+DOWNLOAD_POLYGON_LAYER = 'osm_area'
 ROTATION_FIELD = 'rotation'
 NAME_FIELD = 'name'
 
 
-class WalkingPapersPlugin:
+class ProgressMock(object):
+    def setInfo(self, s):
+        pass
+
+    def setCommand(self, s):
+        pass
+
+    def setConsoleInfo(self, s):
+        pass
+
+
+class WalkingPapersPlugin(object):
     def __init__(self, iface):
         self.iface = iface
 
@@ -116,12 +131,6 @@ class WalkingPapersPlugin:
             return
         pie = pies[0]
 
-        # delete pie composer views if present
-        # TODO: Does not work
-        for c in self.iface.activeComposers():
-            if c.windowTitle() == 'pie':
-                self.iface.deleteComposer(c)
-
         # initialize composer
         view = self.iface.createNewComposer()
         comp = view.composition()
@@ -166,8 +175,7 @@ class WalkingPapersPlugin:
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
             layerUri = 'Polygon?crs=epsg:3857&field=name:string(30)&field=rotation:integer'
-            pie = QgsVectorLayer(layerUri, 'pie_layer', 'memory')
-            pie.setLayerName(PIE_LAYER)
+            pie = QgsVectorLayer(layerUri, PIE_LAYER, 'memory')
             QgsMapLayerRegistry.instance().addMapLayer(pie)
         else:
             pie = pies[0]
@@ -195,18 +203,120 @@ class WalkingPapersPlugin:
 
         self.iface.mapCanvas().refresh()
 
-    def styleOSM(self):
-        self.iface.messageBar().pushWarning(
-            'Not implemented', 'Styling OSM data is yet to be implemented.')
+    def openGeoPackage(self, filename=None):
+        if not filename:
+            filename = QFileDialog.getOpenFileName(
+                parent=None,
+                caption='Select GeoPackage file',
+                filter='GeoPackage File (*.gpkg *.geopackage)')
+            if not filename:
+                return
+        if not os.path.isfile(filename):
+            self.iface.messageBar().pushCritical(
+                'Open GeoPackage', '{} is not a file'.format(filename))
+            return
+        filename = os.path.abspath(filename)
+
+        registry = QgsMapLayerRegistry.instance()
+
+        def construct_uri(filename, polygons, subset):
+            return '{}|layername={}|subset={}'.format(
+                filename,
+                'multipolygons' if polygons else 'lines',
+                subset)
+
+        roads = QgsVectorLayer(construct_uri(
+            filename, False,
+            '"highway" IN (\'primary\', \'secondary\', \'tertiary\', '
+            '\'residential\', \'unclassified\', \'pedestrian\')'
+        ), 'Roads', 'ogr')
+
+        registry.addMapLayer(roads)
+
+        buildings = QgsVectorLayer(construct_uri(filename, True, 'building not null'),
+                                   'Buildings', 'ogr')
+        buildings.rendererV2().setSymbol(QgsFillSymbolV2.createSimple({
+            'style': 'no',
+            'line_color': '#aaaaaa',
+            'line_width': '0.2'
+        }))
+        registry.addMapLayer(buildings)
+        # TODO
 
     def openOSM(self, filename=None):
         """Converts an OSM file to GeoPackage, loads and styles it."""
-        self.iface.messageBar().pushWarning(
-            'Not implemented', 'Opening OSM data is yet to be implemented.')
+        if not filename:
+            filename = QFileDialog.getOpenFileName(
+                parent=None,
+                caption='Select OpenStreetMap file',
+                filter='OSM File (*.osm *.pbf)')
+            if not filename:
+                return
+        if not os.path.isfile(filename):
+            self.iface.messageBar().pushCritical(
+                'Open OSM', '{} is not a file'.format(filename))
+            return
+        filename = os.path.abspath(filename)
+        gpkgFile = os.path.splitext(filename)[0] + '.gpkg'
+        if os.path.isfile(gpkgFile):
+            os.remove(gpkgFile)
+        iniFile = None  # TODO
+        if isWindows():
+            cmd = ['cmd.exe', '/C', 'ogr2ogr.exe']
+        else:
+            cmd = ['ogr2ogr']
+        if iniFile:
+            cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
+        cmd.extend(['-f', 'GPKG', gpkgFile, filename])
+        try:
+            GdalUtils.runGdal(cmd, ProgressMock())
+        except IOError as e:
+            self.iface.messageBar().pushCritical(
+                'Open OSM', 'Error running ogr2ogr: {}'.format(e))
+            return
+        if 'FAILURE' in GdalUtils.consoleOutput:
+            self.iface.messageBar().pushCritical(
+                'Open OSM', 'Error converting OSM to GeoPackage')
+            return
+        self.openGeoPackage(gpkgFile)
 
     def downloadOSM(self):
         """Creates a polygon layer if not present, otherwise
         downloads data from overpass based on polygons.
         Then calls openOSM() to convert them to GeoPackage and style."""
+        layers = QgsMapLayerRegistry.instance().mapLayersByName(DOWNLOAD_POLYGON_LAYER)
+        if not layers:
+            layerUri = 'Polygon?crs=epsg:3857'
+            layer = QgsVectorLayer(layerUri, DOWNLOAD_POLYGON_LAYER, 'memory')
+            QgsMapLayerRegistry.instance().addMapLayer(layer)
+            symbol = QgsFillSymbolV2.createSimple({
+                'style': 'no',
+                'line_color': '#aa0000',
+                'line_width': '1.5'
+            })
+            layer.rendererV2().setSymbol(symbol)
+            self.iface.mapCanvas().refresh()
+        else:
+            layer = layers[0]
+        if not layer.featureCount():
+            self.iface.messageBar().pushInfo(
+                'Download OSM',
+                'Draw a polygon in the "{}" layer to download OSM data'
+                .format(DOWNLOAD_POLYGON_LAYER))
+            return
+
+        filename = QFileDialog.getSaveFileName(
+            parent=None,
+            caption='Select OpenStreetMap file to write',
+            filter='OSM File (*.osm)')
+        if not filename:
+            return
+
+        polygons = []
+        for feature in layer.getFeatures():
+            poly = ''  # TODO
+            polygons.append(poly)
+
+        # TODO: Get polygons, construct Overpass API query, download data into a file
         self.iface.messageBar().pushWarning(
             'Not implemented', 'Downloading OSM data is yet to be implemented.')
