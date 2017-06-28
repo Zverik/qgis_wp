@@ -1,5 +1,5 @@
 from PyQt4.QtCore import QVariant, QRectF, QUrl, QEventLoop
-from PyQt4.QtGui import QMenu, QAction, QIcon, QColor, QFont, QFileDialog
+from PyQt4.QtGui import QMenu, QAction, QColor, QFont, QFileDialog
 from PyQt4.QtNetwork import QNetworkRequest, QNetworkReply
 from qgis.core import (
     QgsField,
@@ -48,24 +48,21 @@ class WalkingPapersPlugin(object):
         self.menu.setObjectName("wpMenu")
         self.menu.setTitle("Walking Papers")
 
-        downloadAction = QAction(QIcon(":/plugins/testplug/icon.png"),
-                                 "Download OSM Data", self.iface.mainWindow())
+        downloadAction = QAction("Download OSM Data", self.iface.mainWindow())
         downloadAction.setObjectName("downloadOSM")
         downloadAction.setStatusTip(
             'Downloads data from OpenStreetMap and styles it.')
         downloadAction.triggered.connect(self.downloadOSM)
         self.menu.addAction(downloadAction)
 
-        openAction = QAction(QIcon(":/plugins/testplug/icon.png"),
-                             "Open OSM Data", self.iface.mainWindow())
+        openAction = QAction("Open OSM Data", self.iface.mainWindow())
         openAction.setObjectName("openOSM")
         openAction.setStatusTip(
             'Converts OSM data, loads and styles it for walking papers')
         openAction.triggered.connect(self.openOSM)
         self.menu.addAction(openAction)
 
-        pieAction = QAction(QIcon(":/plugins/testplug/icon.png"),
-                            "Create Pie Layers", self.iface.mainWindow())
+        pieAction = QAction("Create Pie Layers", self.iface.mainWindow())
         pieAction.setObjectName("makePie")
         pieAction.setStatusTip(
             'Creates a "{}" and "{}" layers'.format(PIE_LAYER, PLAN_LAYER))
@@ -74,8 +71,7 @@ class WalkingPapersPlugin(object):
 
         self.menu.addSeparator()
 
-        rotateAction = QAction(QIcon(":/plugins/testplug/icon.png"),
-                               "Calculate Pie Rotation", self.iface.mainWindow())
+        rotateAction = QAction("Calculate Pie Rotation", self.iface.mainWindow())
         rotateAction.setObjectName("calcRotation")
         rotateAction.setStatusTip(
             'Adds or updates a "{}" column with degrees.'
@@ -83,8 +79,7 @@ class WalkingPapersPlugin(object):
         rotateAction.triggered.connect(self.calcRotation)
         self.menu.addAction(rotateAction)
 
-        atlasAction = QAction(QIcon(":/plugins/testplug/icon.png"),
-                              "Prepare Atlas", self.iface.mainWindow())
+        atlasAction = QAction("Prepare Atlas", self.iface.mainWindow())
         atlasAction.setObjectName("makeAtlas")
         atlasAction.setStatusTip(
             'Creates an atlas in map composer to print walking papers'.format(PIE_LAYER))
