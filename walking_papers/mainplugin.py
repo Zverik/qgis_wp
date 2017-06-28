@@ -1,5 +1,6 @@
-from PyQt4.QtCore import QVariant, QRectF
+from PyQt4.QtCore import QVariant, QRectF, QUrl, QEventLoop
 from PyQt4.QtGui import QMenu, QAction, QIcon, QColor, QFont, QFileDialog
+from PyQt4.QtNetwork import QNetworkRequest, QNetworkReply
 from qgis.core import (
     QgsField,
     QgsMapLayerRegistry,
@@ -9,6 +10,10 @@ from qgis.core import (
     QgsComposerMap,
     QgsComposerLabel,
     QgsComposerObject,
+    QgsNetworkAccessManager,
+    QgsMessageLog,
+    QgsCoordinateReferenceSystem,
+    QgsCoordinateTransform,
 )
 from processing import runalg
 from processing.tools.system import isWindows
@@ -16,9 +21,9 @@ from processing.algs.gdal.GdalUtils import GdalUtils
 import os
 
 
-PIE_LAYER = 'sheets'
-PLAN_LAYER = 'pie'
-DOWNLOAD_POLYGON_LAYER = 'osm_area'
+PIE_LAYER = 'Pie Sheets'
+PLAN_LAYER = 'Pie Overview'
+DOWNLOAD_POLYGON_LAYER = 'OSM Download Area'
 ROTATION_FIELD = 'rotation'
 NAME_FIELD = 'name'
 
@@ -66,6 +71,8 @@ class WalkingPapersPlugin(object):
             'Creates a "{}" and "{}" layers'.format(PIE_LAYER, PLAN_LAYER))
         pieAction.triggered.connect(self.createPie)
         self.menu.addAction(pieAction)
+
+        self.menu.addSeparator()
 
         rotateAction = QAction(QIcon(":/plugins/testplug/icon.png"),
                                "Calculate Pie Rotation", self.iface.mainWindow())
@@ -202,6 +209,12 @@ class WalkingPapersPlugin(object):
         label.writeToLayer(pie)
 
         self.iface.mapCanvas().refresh()
+        self.iface.messageBar().pushInfo(
+            'Pie',
+            'Now sketch pie on the "{}" layer and then split it into rectangle sheets '
+            'on the "{}" layer. After that choose "Calculate Rotation" '
+            'and then "Prepare Atlas".'
+            .format(PLAN_LAYER, PIE_LAYER))
 
     def openGeoPackage(self, filename=None):
         if not filename:
@@ -243,13 +256,15 @@ class WalkingPapersPlugin(object):
         registry.addMapLayer(buildings)
         # TODO
 
+        self.createPie()
+
     def openOSM(self, filename=None):
         """Converts an OSM file to GeoPackage, loads and styles it."""
         if not filename:
             filename = QFileDialog.getOpenFileName(
                 parent=None,
                 caption='Select OpenStreetMap file',
-                filter='OSM File (*.osm *.pbf)')
+                filter='OSM File (*.osm *.pbf);;GeoPackage File (*.gpkg)')
             if not filename:
                 return
         if not os.path.isfile(filename):
@@ -257,16 +272,20 @@ class WalkingPapersPlugin(object):
                 'Open OSM', '{} is not a file'.format(filename))
             return
         filename = os.path.abspath(filename)
+        if filename.endswith('.gpkg'):
+            self.openGeoPackage(filename)
+            return
         gpkgFile = os.path.splitext(filename)[0] + '.gpkg'
         if os.path.isfile(gpkgFile):
             os.remove(gpkgFile)
-        iniFile = None  # TODO
         if isWindows():
             cmd = ['cmd.exe', '/C', 'ogr2ogr.exe']
         else:
             cmd = ['ogr2ogr']
-        if iniFile:
-            cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
+        cmd.extend(['--config', 'OSM_USE_CUSTOM_INDEXING', 'NO'])
+        iniFile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'osmconf.ini')
+        cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
+        cmd.extend(['-t_srs', 'EPSG:3857'])
         cmd.extend(['-f', 'GPKG', gpkgFile, filename])
         try:
             GdalUtils.runGdal(cmd, ProgressMock())
@@ -286,7 +305,7 @@ class WalkingPapersPlugin(object):
         Then calls openOSM() to convert them to GeoPackage and style."""
         layers = QgsMapLayerRegistry.instance().mapLayersByName(DOWNLOAD_POLYGON_LAYER)
         if not layers:
-            layerUri = 'Polygon?crs=epsg:3857'
+            layerUri = 'Polygon?crs=epsg:4326'
             layer = QgsVectorLayer(layerUri, DOWNLOAD_POLYGON_LAYER, 'memory')
             QgsMapLayerRegistry.instance().addMapLayer(layer)
             symbol = QgsFillSymbolV2.createSimple({
@@ -296,14 +315,22 @@ class WalkingPapersPlugin(object):
             })
             layer.rendererV2().setSymbol(symbol)
             self.iface.mapCanvas().refresh()
+            downloadAction = QAction("Download OSM Data", self.iface.legendInterface())
+            downloadAction.triggered.connect(self.downloadOSM)
+            self.iface.legendInterface().addLegendLayerActionForLayer(downloadAction, layer)
         else:
             layer = layers[0]
         if not layer.featureCount():
+            self.iface.setActiveLayer(layer)
+            self.iface.vectorLayerTools().startEditing(layer)
             self.iface.messageBar().pushInfo(
                 'Download OSM',
-                'Draw a polygon in the "{}" layer to download OSM data'
+                'Draw a polygon in the "{}" layer and the choose the same '
+                'menu item to download object in the polygon'
                 .format(DOWNLOAD_POLYGON_LAYER))
             return
+        if layer.isEditable():
+            self.iface.vectorLayerTools().saveEdits(layer)
 
         filename = QFileDialog.getSaveFileName(
             parent=None,
@@ -312,11 +339,41 @@ class WalkingPapersPlugin(object):
         if not filename:
             return
 
+        xform = QgsCoordinateTransform(layer.crs(), QgsCoordinateReferenceSystem(4326))
         polygons = []
         for feature in layer.getFeatures():
-            poly = ''  # TODO
+            points = map(xform.transform, feature.geometry().asPolygon()[0])
+            poly = ' '.join(['{:.6f} {:.6f}'.format(qp.y(), qp.x()) for qp in points])
             polygons.append(poly)
+        query = '[out:xml][timeout:250];('
+        query += ''.join(['node(poly:"{}");<;'.format(p) for p in polygons])
+        query += ');out body qt;'
 
-        # TODO: Get polygons, construct Overpass API query, download data into a file
-        self.iface.messageBar().pushWarning(
-            'Not implemented', 'Downloading OSM data is yet to be implemented.')
+        url = QUrl('http://overpass-api.de/api/interpreter')
+        url.addEncodedQueryItem('data', QUrl.toPercentEncoding(query))
+        url.setPort(80)
+
+        request = QNetworkRequest(url)
+        request.setRawHeader('User-Agent', 'QGIS_wp')
+        network = QgsNetworkAccessManager.instance()
+        reply = network.get(request)
+        loop = QEventLoop()
+        network.finished.connect(loop.quit)
+        loop.exec_()
+
+        data = reply.readAll()
+        if (not data or '<remark> runtime error' in data or
+                '<node' not in data or reply.error() != QNetworkReply.NoError):
+            QgsMessageLog.logMessage('Overpass API reply: ' + str(data))
+            self.iface.messageBar().pushCritical(
+                'Download error',
+                'Failed to download data from Overpass API. See log for details')
+        else:
+            with open(filename, 'wb') as f:
+                f.write(data)
+            # Remove the polygon layer and hide any OSM layers used to draw it
+            for n, l in QgsMapLayerRegistry.instance().mapLayers().iteritems():
+                if 'OSM' in n or 'openstreetmap' in n.lower():
+                    self.iface.legendInterface().setLayerVisible(l, False)
+            QgsMapLayerRegistry.instance().removeMapLayer(layer)
+            self.openOSM(filename)
