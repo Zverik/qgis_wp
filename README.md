@@ -14,4 +14,4 @@ It is experimental, so you would need to enable these.
 
 ## Author and License
 
-Written by Ilya Zverev, published under WTFPL license.
+Written by Ilya Zverev, published under GPL v3 license.
