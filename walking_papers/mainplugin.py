@@ -2,6 +2,7 @@
 # Copyright (C) 2017 Ilya Zverev
 # This code is licensed GPL v3, see the LICENSE file for details.
 # And it comes WITHOUT ANY WARRANTY obviously.
+
 from PyQt4.QtCore import QVariant, QRectF, QUrl, QEventLoop
 from PyQt4.QtGui import QMenu, QAction, QColor, QFont, QFileDialog
 from PyQt4.QtNetwork import QNetworkRequest, QNetworkReply

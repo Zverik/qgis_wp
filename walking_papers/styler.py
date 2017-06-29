@@ -1,3 +1,8 @@
+# QGIS Layer Styling Module
+# Copyright (C) 2017 Ilya Zverev
+# This code is licensed GPL v3, see the LICENSE file for details.
+# And it comes WITHOUT ANY WARRANTY obviously.
+
 from PyQt4.QtGui import QColor, QFont
 from qgis.core import (
     QgsMapLayerRegistry,
