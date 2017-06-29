@@ -18,7 +18,9 @@ from qgis.core import (
 from processing import runalg
 from processing.tools.system import isWindows
 from processing.algs.gdal.GdalUtils import GdalUtils
+from .styler import applyStyle, applyLayerStyle
 import os
+import yaml
 
 
 PIE_LAYER = 'Pie Sheets'
@@ -186,23 +188,20 @@ class WalkingPapersPlugin(object):
             if not self.addFieldToLayer(pie, NAME_FIELD, QVariant.String):
                 return
 
-        symbol = QgsFillSymbolV2.createSimple({
-            'style': 'no',
-            'line_color': '#0000aa',
-            'line_width': '1.5'
+        applyLayerStyle(pie, {
+            'fill': {
+                'style': 'no',
+                'line_color': '#0000aa',
+                'line_width': '1.5',
+            },
+            'label': {
+                'field': 'name',
+                'font-size': 14,
+                'font-weight': 'bold',
+                'color': '#0000aa',
+                'buffer-color': '#ffffff',
+            }
         })
-        pie.rendererV2().setSymbol(symbol)
-        label = QgsPalLayerSettings()
-        label.readFromLayer(pie)
-        label.enabled = True
-        label.drawLabels = True
-        label.fieldName = 'name'
-        label.textFont.setPointSize(14)
-        label.textFont.setBold(True)
-        label.textColor = QColor('#0000aa')
-        label.bufferDraw = True
-        label.writeToLayer(pie)
-
         self.iface.mapCanvas().refresh()
         self.iface.messageBar().pushInfo(
             'Pie',
@@ -225,32 +224,10 @@ class WalkingPapersPlugin(object):
             return
         filename = os.path.abspath(filename)
 
-        registry = QgsMapLayerRegistry.instance()
-
-        def construct_uri(filename, polygons, subset):
-            return '{}|layername={}|subset={}'.format(
-                filename,
-                'multipolygons' if polygons else 'lines',
-                subset)
-
-        roads = QgsVectorLayer(construct_uri(
-            filename, False,
-            '"highway" IN (\'primary\', \'secondary\', \'tertiary\', '
-            '\'residential\', \'unclassified\', \'pedestrian\')'
-        ), 'Roads', 'ogr')
-
-        registry.addMapLayer(roads)
-
-        buildings = QgsVectorLayer(construct_uri(filename, True, 'building not null'),
-                                   'Buildings', 'ogr')
-        buildings.rendererV2().setSymbol(QgsFillSymbolV2.createSimple({
-            'style': 'no',
-            'line_color': '#aaaaaa',
-            'line_width': '0.2'
-        }))
-        registry.addMapLayer(buildings)
-        # TODO
-
+        styleFile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'wp_style.yaml')
+        with open(styleFile, 'r') as f:
+            style = yaml.load(f)
+        applyStyle(filename, style)
         self.createPie()
 
     def openOSM(self, filename=None):
@@ -259,7 +236,7 @@ class WalkingPapersPlugin(object):
             filename = QFileDialog.getOpenFileName(
                 parent=None,
                 caption='Select OpenStreetMap file',
-                filter='OSM File (*.osm *.pbf);;GeoPackage File (*.gpkg)')
+                filter='OSM or GeoPackage File (*.osm *.pbf *.gpkg)')
             if not filename:
                 return
         if not os.path.isfile(filename):

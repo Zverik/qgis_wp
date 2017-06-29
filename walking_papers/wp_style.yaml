@@ -1,0 +1,78 @@
+-
+    name: City Roads
+    layer: lines
+    query: highway IN ('primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'pedestrian')
+    style:
+        line:
+            line_color: "#777777"
+            line_width: 0.3
+        label:
+            field: name
+            font-size: 8
+            color: "#666666"
+            buffer-size: 0.4
+-
+    name: Service Roads
+    layer: lines
+    query: highway IN ('service', 'track')
+    style:
+        line:
+            line_color: "#aaaaaa"
+            line_width: 0.2
+-
+    name: Paths
+    layer: lines
+    query: highway IN ('footway', 'cycleway', 'path')
+    style:
+        line:
+            line_color: "#aaaaaa"
+            line_width: 0.2
+            pen_style: dash
+-
+    name: Buildings
+    layer: multipolygons
+    query: building not null
+    style:
+        fill:
+            color: "#fafafa"
+            line_color: "#aaaaaa"
+            line_width: 0.2
+        label:
+            expression: addr_housenumber || '\n—\n' ||  building_levels
+            color: "#aaaaaa"
+            font-size: 8
+            buffer-width: 0.4
+            text-align: center
+            line-height: 0.6
+-
+    name: Railways
+    layer: lines
+    query: railway = 'rail'
+    style:
+        line:
+            line_color: "#777777"
+            line_width: 0.5
+-
+    name: Rivers
+    layer: lines
+    query: waterway = 'river' or waterway = 'stream' or waterway = 'canal' or natural = 'coastline'
+    style:
+        line:
+            line_width: 1
+            line_color: "#7777ff"
+-
+    name: Parks
+    layer: multipolygons
+    query: leisure = 'park' OR landuse = 'grass' OR natural = 'wood'
+    style:
+        fill:
+            color: "#ddffdd"
+            line_style: no
+-
+    name: Water
+    layer: multipolygons
+    query: natural='water' OR waterway='riverbank'
+    style:
+        fill:
+            color: "#eeeeff"
+            line_style: no
