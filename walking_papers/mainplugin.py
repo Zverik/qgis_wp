@@ -277,6 +277,7 @@ class WalkingPapersPlugin(object):
         iniFile = os.path.join(self.path, 'osmconf.ini')
         cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
         cmd.extend(['-t_srs', 'EPSG:3857'])
+        cmd.extend(['-overwrite'])
         cmd.extend(['-f', 'GPKG', gpkgFile, filename])
         try:
             GdalUtils.runGdal(cmd, ProgressMock())
