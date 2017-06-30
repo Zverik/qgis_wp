@@ -55,7 +55,7 @@
 -
     name: Rivers
     layer: lines
-    query: waterway = 'river' or waterway = 'stream' or waterway = 'canal' or natural = 'coastline'
+    query: (waterway = 'river' or waterway = 'stream' or waterway = 'canal' or natural = 'coastline') AND tunnel is null
     style:
         line:
             line_width: 1

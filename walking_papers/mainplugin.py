@@ -4,14 +4,13 @@
 # And it comes WITHOUT ANY WARRANTY obviously.
 
 from PyQt4.QtCore import QVariant, QRectF, QUrl, QEventLoop
-from PyQt4.QtGui import QMenu, QAction, QColor, QFont, QFileDialog
+from PyQt4.QtGui import QMenu, QAction, QColor, QFont, QFileDialog, QIcon, QToolButton
 from PyQt4.QtNetwork import QNetworkRequest, QNetworkReply
 from qgis.core import (
     QgsField,
     QgsMapLayerRegistry,
     QgsVectorLayer,
     QgsFillSymbolV2,
-    QgsPalLayerSettings,
     QgsComposerMap,
     QgsComposerLabel,
     QgsComposerObject,
@@ -49,11 +48,13 @@ class ProgressMock(object):
 class WalkingPapersPlugin(object):
     def __init__(self, iface):
         self.iface = iface
+        self.path = os.path.dirname(os.path.realpath(__file__))
 
     def initGui(self):
         self.menu = QMenu(self.iface.mainWindow())
         self.menu.setObjectName("wpMenu")
         self.menu.setTitle("Walking Papers")
+        self.menu.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
 
         downloadAction = QAction("Download OSM Data", self.iface.mainWindow())
         downloadAction.setObjectName("downloadOSM")
@@ -95,8 +96,16 @@ class WalkingPapersPlugin(object):
 
         self.iface.pluginMenu().addMenu(self.menu)
 
+        self.toolButton = QToolButton()
+        self.toolButton.setToolTip("Walking Papers")
+        self.toolButton.setMenu(self.menu)
+        self.toolButton.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
+        self.toolButton.setPopupMode(QToolButton.InstantPopup)
+        self.toolbarAction = self.iface.addToolBarWidget(self.toolButton)
+
     def unload(self):
         self.menu.deleteLater()
+        self.iface.removeToolBarIcon(self.toolbarAction)
 
     def calcRotation(self):
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
@@ -207,6 +216,7 @@ class WalkingPapersPlugin(object):
                 'buffer-color': '#ffffff',
             }
         })
+        self.iface.legendInterface().refreshLayerSymbology(pie)
         self.iface.mapCanvas().refresh()
         self.iface.messageBar().pushInfo(
             'Pie',
@@ -229,10 +239,12 @@ class WalkingPapersPlugin(object):
             return
         filename = os.path.abspath(filename)
 
-        styleFile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'wp_style.yaml')
+        styleFile = os.path.join(self.path, 'wp_style.yaml')
         with open(styleFile, 'r') as f:
             style = yaml.load(f)
         applyStyle(filename, style)
+        for layer in self.iface.legendInterface().layers():
+            self.iface.legendInterface().refreshLayerSymbology(layer)
         self.createPie()
 
     def openOSM(self, filename=None):
@@ -249,18 +261,20 @@ class WalkingPapersPlugin(object):
                 'Open OSM', '{} is not a file'.format(filename))
             return
         filename = os.path.abspath(filename)
+        gpkgFile = os.path.splitext(filename)[0] + '.gpkg'
         if filename.endswith('.gpkg'):
             self.openGeoPackage(filename)
             return
-        gpkgFile = os.path.splitext(filename)[0] + '.gpkg'
+
         if os.path.isfile(gpkgFile):
             os.remove(gpkgFile)
         if isWindows():
             cmd = ['cmd.exe', '/C', 'ogr2ogr.exe']
         else:
             cmd = ['ogr2ogr']
+
         cmd.extend(['--config', 'OSM_USE_CUSTOM_INDEXING', 'NO'])
-        iniFile = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'osmconf.ini')
+        iniFile = os.path.join(self.path, 'osmconf.ini')
         cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
         cmd.extend(['-t_srs', 'EPSG:3857'])
         cmd.extend(['-f', 'GPKG', gpkgFile, filename])
