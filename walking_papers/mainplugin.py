@@ -3,21 +3,40 @@
 # This code is licensed GPL v3, see the LICENSE file for details.
 # And it comes WITHOUT ANY WARRANTY obviously.
 
-from PyQt4.QtCore import QVariant, QRectF, QUrl, QEventLoop
-from PyQt4.QtGui import QMenu, QAction, QColor, QFont, QFileDialog, QIcon, QToolButton
-from PyQt4.QtNetwork import QNetworkRequest, QNetworkReply
+from PyQt4.QtCore import (
+    QCoreApplication,
+    QEventLoop,
+    QRectF,
+    QSettings,
+    QTranslator,
+    QUrl,
+    QVariant,
+)
+from PyQt4.QtGui import (
+    QAction,
+    QColor,
+    QFileDialog,
+    QFont,
+    QIcon,
+    QMenu,
+    QToolButton,
+)
+from PyQt4.QtNetwork import (
+    QNetworkReply,
+    QNetworkRequest,
+)
 from qgis.core import (
-    QgsField,
-    QgsMapLayerRegistry,
-    QgsVectorLayer,
-    QgsFillSymbolV2,
-    QgsComposerMap,
     QgsComposerLabel,
+    QgsComposerMap,
     QgsComposerObject,
-    QgsNetworkAccessManager,
-    QgsMessageLog,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsField,
+    QgsFillSymbolV2,
+    QgsMapLayerRegistry,
+    QgsMessageLog,
+    QgsNetworkAccessManager,
+    QgsVectorLayer,
 )
 from processing import runalg
 from processing.tools.system import isWindows
@@ -49,6 +68,15 @@ class WalkingPapersPlugin(object):
     def __init__(self, iface):
         self.iface = iface
         self.path = os.path.dirname(os.path.realpath(__file__))
+        locale = QSettings().value("locale/userLocale")[0:2]
+        localePath = os.path.join(self.path, 'i18n', '{}.qm'.format(locale))
+        if os.path.exists(localePath):
+            self.translator = QTranslator()
+            self.translator.load(localePath)
+            QCoreApplication.installTranslator(self.translator)
+
+    def tr(self, text):
+        return QCoreApplication.translate('QGISWalkingPapers', text)
 
     def initGui(self):
         self.menu = QMenu(self.iface.mainWindow())

@@ -5,12 +5,12 @@
 
 from PyQt4.QtGui import QColor, QFont
 from qgis.core import (
-    QgsMapLayerRegistry,
-    QgsVectorLayer,
-    QgsMarkerSymbolV2,
-    QgsLineSymbolV2,
     QgsFillSymbolV2,
+    QgsLineSymbolV2,
+    QgsMapLayerRegistry,
+    QgsMarkerSymbolV2,
     QgsPalLayerSettings,
+    QgsVectorLayer,
 )
 
 
