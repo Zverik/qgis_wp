@@ -118,6 +118,8 @@ class WalkingPapersPlugin(object):
             self.iface.messageBar().pushInfo(
                 'No data', 'No features in the "{}" layer.'.format(PIE_LAYER))
             return
+        if pie.isEditable():
+            self.iface.vectorLayerTools().saveEdits(pie)
 
         rotIndex = pie.dataProvider().fieldNameIndex(ROTATION_FIELD)
         if rotIndex < 0:
@@ -177,6 +179,8 @@ class WalkingPapersPlugin(object):
         atlas.setCoverageLayer(pie)
         atlas.setEnabled(True)
         atlas.setHideCoverage(True)
+        atlas.setSingleFile(True)
+        comp.refreshItems()
 
     def addFieldToLayer(self, layer, name, typ):
         if layer.dataProvider().fieldNameIndex(name) < 0:
@@ -205,8 +209,8 @@ class WalkingPapersPlugin(object):
         applyLayerStyle(pie, {
             'fill': {
                 'style': 'no',
-                'line_color': '#0000aa',
-                'line_width': '1.5',
+                'line-color': '#0000aa',
+                'line-width': '1',
             },
             'label': {
                 'field': 'name',
@@ -217,6 +221,22 @@ class WalkingPapersPlugin(object):
             }
         })
         self.iface.legendInterface().refreshLayerSymbology(pie)
+
+        overviews = QgsMapLayerRegistry.instance().mapLayersByName(PLAN_LAYER)
+        if not overviews:
+            layerUri = 'LineString?crs=epsg:3857'
+            overview = QgsVectorLayer(layerUri, PLAN_LAYER, 'memory')
+            QgsMapLayerRegistry.instance().addMapLayer(overview)
+        else:
+            overview = overviews[0]
+        applyLayerStyle(overview, {
+            'line': {
+                'line-color': '#0000aa',
+                'line-width': '2',
+            }
+        })
+        self.iface.legendInterface().refreshLayerSymbology(overview)
+
         self.iface.mapCanvas().refresh()
         self.iface.messageBar().pushInfo(
             'Pie',

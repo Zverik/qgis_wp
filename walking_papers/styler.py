@@ -84,6 +84,10 @@ def applyLayerStyle(layer, style):
             label.bufferSize = float(l['buffer-size'])
         if 'buffer-opacity' in l:
             label.bufferTransp = 100 - int(100 * float(l['buffer-opacity']))
+        # Fix for lines
+        if label.enabled and 'line' in style:
+            label.placement = QgsPalLayerSettings.Line
+            label.placementFlags = QgsPalLayerSettings.AboveLine
         label.writeToLayer(layer)
 
 

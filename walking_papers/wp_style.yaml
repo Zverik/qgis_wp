@@ -4,30 +4,30 @@
     query: highway IN ('primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'pedestrian')
     style:
         line:
-            line_color: "#777777"
-            line_width: 0.3
+            line-color: "#777777"
+            line-width: 0.3
         label:
             field: name
             font-size: 8
             color: "#666666"
-            buffer-size: 0.4
+            buffer-size: 1
 -
     name: Service Roads
     layer: lines
     query: highway IN ('service', 'track')
     style:
         line:
-            line_color: "#aaaaaa"
-            line_width: 0.2
+            line-color: "#aaaaaa"
+            line-width: 0.2
 -
     name: Paths
     layer: lines
     query: highway IN ('footway', 'cycleway', 'path')
     style:
         line:
-            line_color: "#aaaaaa"
-            line_width: 0.2
-            pen_style: dash
+            line-color: "#aaaaaa"
+            line-width: 0.2
+            pen-style: dash
 -
     name: Buildings
     layer: multipolygons
@@ -35,13 +35,13 @@
     style:
         fill:
             color: "#fafafa"
-            line_color: "#aaaaaa"
-            line_width: 0.2
+            line-color: "#aaaaaa"
+            line-width: 0.2
         label:
             expression: addr_housenumber || '\n—\n' ||  building_levels
             color: "#aaaaaa"
             font-size: 8
-            buffer-width: 0.4
+            buffer-size: 1
             text-align: center
             line-height: 0.6
 -
@@ -50,16 +50,16 @@
     query: railway = 'rail'
     style:
         line:
-            line_color: "#777777"
-            line_width: 0.5
+            line-color: "#777777"
+            line-width: 0.5
 -
     name: Rivers
     layer: lines
     query: (waterway = 'river' or waterway = 'stream' or waterway = 'canal' or natural = 'coastline') AND tunnel is null
     style:
         line:
-            line_width: 1
-            line_color: "#7777ff"
+            line-width: 1
+            line-color: "#7777ff"
 -
     name: Parks
     layer: multipolygons
@@ -67,7 +67,7 @@
     style:
         fill:
             color: "#ddffdd"
-            line_style: no
+            line-style: no
 -
     name: Water
     layer: multipolygons
@@ -75,4 +75,4 @@
     style:
         fill:
             color: "#eeeeff"
-            line_style: no
+            line-style: no
