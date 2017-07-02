@@ -76,56 +76,55 @@ class WalkingPapersPlugin(object):
             QCoreApplication.installTranslator(self.translator)
 
     def tr(self, text):
-        return QCoreApplication.translate('QGISWalkingPapers', text)
+        return QCoreApplication.translate('WalkingPapersPlugin', text)
 
     def initGui(self):
         self.menu = QMenu(self.iface.mainWindow())
         self.menu.setObjectName("wpMenu")
-        self.menu.setTitle("Walking Papers")
+        self.menu.setTitle(self.tr(u"Walking Papers"))
         self.menu.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
 
-        downloadAction = QAction("Download OSM Data", self.iface.mainWindow())
+        downloadAction = QAction(self.tr(u"Download OSM Data"), self.iface.mainWindow())
         downloadAction.setObjectName("downloadOSM")
         downloadAction.setStatusTip(
-            'Downloads data from OpenStreetMap and styles it.')
+            self.tr(u'Downloads data from OpenStreetMap and styles it.'))
         downloadAction.triggered.connect(self.downloadOSM)
         self.menu.addAction(downloadAction)
 
-        openAction = QAction("Open OSM Data", self.iface.mainWindow())
+        openAction = QAction(self.tr(u"Open OSM Data"), self.iface.mainWindow())
         openAction.setObjectName("openOSM")
         openAction.setStatusTip(
-            'Converts OSM data, loads and styles it for walking papers')
+            self.tr(u'Converts OSM data, loads and styles it for walking papers'))
         openAction.triggered.connect(self.openOSM)
         self.menu.addAction(openAction)
 
-        pieAction = QAction("Create Pie Layers", self.iface.mainWindow())
+        pieAction = QAction(self.tr(u"Create Pie Layers"), self.iface.mainWindow())
         pieAction.setObjectName("makePie")
         pieAction.setStatusTip(
-            'Creates a "{}" and "{}" layers'.format(PIE_LAYER, PLAN_LAYER))
+            self.tr(u'Creates pie sheets and pie overview layers'))
         pieAction.triggered.connect(self.createPie)
         self.menu.addAction(pieAction)
 
         self.menu.addSeparator()
 
-        rotateAction = QAction("Calculate Pie Rotation", self.iface.mainWindow())
+        rotateAction = QAction(self.tr(u"Calculate Pie Rotation"), self.iface.mainWindow())
         rotateAction.setObjectName("calcRotation")
         rotateAction.setStatusTip(
-            'Adds or updates a "{}" column with degrees.'
-            'Requires a "{}" layer.'.format(ROTATION_FIELD, PIE_LAYER))
+            self.tr(u'Adds or updates a rotation column with degrees. Requires a pie sheets layer'))
         rotateAction.triggered.connect(self.calcRotation)
         self.menu.addAction(rotateAction)
 
-        atlasAction = QAction("Prepare Atlas", self.iface.mainWindow())
+        atlasAction = QAction(self.tr(u"Prepare Atlas"), self.iface.mainWindow())
         atlasAction.setObjectName("makeAtlas")
         atlasAction.setStatusTip(
-            'Creates an atlas in map composer to print walking papers'.format(PIE_LAYER))
+            self.tr(u'Creates an atlas in map composer to print walking papers').format(PIE_LAYER))
         atlasAction.triggered.connect(self.createAtlas)
         self.menu.addAction(atlasAction)
 
         self.iface.pluginMenu().addMenu(self.menu)
 
         self.toolButton = QToolButton()
-        self.toolButton.setToolTip("Walking Papers")
+        self.toolButton.setToolTip(self.tr(u"Walking Papers"))
         self.toolButton.setMenu(self.menu)
         self.toolButton.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
         self.toolButton.setPopupMode(QToolButton.InstantPopup)
@@ -139,12 +138,12 @@ class WalkingPapersPlugin(object):
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
             self.iface.messageBar().pushCritical(
-                'No layer', 'Please add "{}" layer.'.format(PIE_LAYER))
+                self.tr(u'No layer'), self.tr(u'Please add "{}" layer.').format(PIE_LAYER))
             return
         pie = pies[0]
         if not pie.featureCount():
             self.iface.messageBar().pushInfo(
-                'No data', 'No features in the "{}" layer.'.format(PIE_LAYER))
+                self.tr(u'No data'), self.tr(u'No features in the "{}" layer.').format(PIE_LAYER))
             return
         if pie.isEditable():
             self.iface.vectorLayerTools().saveEdits(pie)
@@ -159,7 +158,7 @@ class WalkingPapersPlugin(object):
         boxesLayer = QgsVectorLayer(boxes['OUTPUT'], 'boxes_tmp', 'ogr')
         if not boxesLayer.isValid():
             self.iface.messageBar().pushCritical(
-                'Access error', 'Failed to load a temporary processing layer.')
+                self.tr(u'Access error'), self.tr(u'Failed to load a temporary processing layer.'))
             return
 
         iterbox = boxesLayer.getFeatures()
@@ -169,13 +168,14 @@ class WalkingPapersPlugin(object):
             if box['WIDTH'] > box['HEIGHT']:
                 angle += 90 if angle < 0 else -90
             pie.dataProvider().changeAttributeValues({l.id(): {rotIndex: angle}})
-        self.iface.messageBar().pushSuccess('Done', 'Pie rotation values were updated.')
+        self.iface.messageBar().pushSuccess(
+            self.tr('Done'), self.tr(u'Pie rotation values were updated.'))
 
     def createAtlas(self):
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
             self.iface.messageBar().pushCritical(
-                'No layer', 'Please add "{}" layer.'.format(PIE_LAYER))
+                self.tr(u'No layer'), self.tr(u'Please add "{}" layer.').format(PIE_LAYER))
             return
         pie = pies[0]
 
@@ -216,8 +216,9 @@ class WalkingPapersPlugin(object):
             layer.updateFields()
             if layer.dataProvider().fieldNameIndex(name) < 0:
                 self.iface.messageBar().pushCritical(
-                    'Access error',
-                    'Failed to add a "{}" field to the "{}" layer.'.format(name, layer.layerName()))
+                    self.tr(u'Access error'),
+                    self.tr(u'Failed to add a "{}" field to the "{}" layer.')
+                        .format(name, layer.layerName()))
                 return False
         return True
 
@@ -267,23 +268,21 @@ class WalkingPapersPlugin(object):
 
         self.iface.mapCanvas().refresh()
         self.iface.messageBar().pushInfo(
-            'Pie',
-            'Now sketch pie on the "{}" layer and then split it into rectangle sheets '
-            'on the "{}" layer. After that choose "Calculate Rotation" '
-            'and then "Prepare Atlas".'
-            .format(PLAN_LAYER, PIE_LAYER))
+            self.tr(u'Done'),
+            self.tr(u'Now sketch pie on the "{}" layer and then split it into rectangle sheets '
+                    'on the "{}" layer. After that choose "{}" '
+                    'and then "{}".')
+            .format(PLAN_LAYER, PIE_LAYER,
+                    self.tr(u'Calculate Pie Rotation'),
+                    self.tr(u'Prepare Atlas')))
 
     def openGeoPackage(self, filename=None):
         if not filename:
             filename = QFileDialog.getOpenFileName(
                 parent=None,
-                caption='Select GeoPackage file',
-                filter='GeoPackage File (*.gpkg *.geopackage)')
-            if not filename:
-                return
-        if not os.path.isfile(filename):
-            self.iface.messageBar().pushCritical(
-                'Open GeoPackage', '{} is not a file'.format(filename))
+                caption=self.tr(u'Select GeoPackage file'),
+                filter=self.tr(u'GeoPackage File') + u' (*.gpkg *.geopackage)')
+        if not filename or not os.path.isfile(filename):
             return
         filename = os.path.abspath(filename)
 
@@ -300,13 +299,9 @@ class WalkingPapersPlugin(object):
         if not filename:
             filename = QFileDialog.getOpenFileName(
                 parent=None,
-                caption='Select OpenStreetMap file',
-                filter='OSM or GeoPackage File (*.osm *.pbf *.gpkg)')
-            if not filename:
-                return
-        if not os.path.isfile(filename):
-            self.iface.messageBar().pushCritical(
-                'Open OSM', '{} is not a file'.format(filename))
+                caption=self.tr(u'Select OpenStreetMap file'),
+                filter=self.tr(u'OSM or GeoPackage File') + u' (*.osm *.pbf *.gpkg)')
+        if not filename or not os.path.isfile(filename):
             return
         filename = os.path.abspath(filename)
         gpkgFile = os.path.splitext(filename)[0] + '.gpkg'
@@ -331,11 +326,11 @@ class WalkingPapersPlugin(object):
             GdalUtils.runGdal(cmd, ProgressMock())
         except IOError as e:
             self.iface.messageBar().pushCritical(
-                'Open OSM', 'Error running ogr2ogr: {}'.format(e))
+                self.tr(u'Open OSM Data'), self.tr(u'Error running ogr2ogr: {}').format(e))
             return
         if 'FAILURE' in GdalUtils.consoleOutput:
             self.iface.messageBar().pushCritical(
-                'Open OSM', 'Error converting OSM to GeoPackage')
+                self.tr(u'Open OSM Data'), self.tr(u'Error converting OSM to GeoPackage.'))
             return
         self.openGeoPackage(gpkgFile)
 
@@ -355,18 +350,15 @@ class WalkingPapersPlugin(object):
             })
             layer.rendererV2().setSymbol(symbol)
             self.iface.mapCanvas().refresh()
-            downloadAction = QAction("Download OSM Data", self.iface.legendInterface())
-            downloadAction.triggered.connect(self.downloadOSM)
-            self.iface.legendInterface().addLegendLayerActionForLayer(downloadAction, layer)
         else:
             layer = layers[0]
         if not layer.featureCount():
             self.iface.setActiveLayer(layer)
             self.iface.vectorLayerTools().startEditing(layer)
             self.iface.messageBar().pushInfo(
-                'Download OSM',
-                'Draw a polygon in the "{}" layer and the choose the same '
-                'menu item to download object in the polygon'
+                self.tr(u'Download OSM Data'),
+                self.tr(u'Draw a polygon in the "{}" layer and the choose the same '
+                        'menu item to download object in the polygon.')
                 .format(DOWNLOAD_POLYGON_LAYER))
             return
         if layer.isEditable():
@@ -374,8 +366,8 @@ class WalkingPapersPlugin(object):
 
         filename = QFileDialog.getSaveFileName(
             parent=None,
-            caption='Select OpenStreetMap file to write',
-            filter='OSM File (*.osm)')
+            caption=self.tr(u'Select OpenStreetMap file to write'),
+            filter=self.tr(u'OSM File') + u' (*.osm)')
         if not filename:
             return
 
@@ -406,8 +398,8 @@ class WalkingPapersPlugin(object):
                 '<node' not in data or reply.error() != QNetworkReply.NoError):
             QgsMessageLog.logMessage('Overpass API reply: ' + str(data))
             self.iface.messageBar().pushCritical(
-                'Download error',
-                'Failed to download data from Overpass API. See log for details')
+                self.tr(u'Download error'),
+                self.tr(u'Failed to download data from Overpass API. See log for details.'))
         else:
             with open(filename, 'wb') as f:
                 f.write(data)
