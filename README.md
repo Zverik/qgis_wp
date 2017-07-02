@@ -10,9 +10,7 @@
 
 Install the plugin from the QGIS Plugin Repository. Alternatively, clone this repository and do
 
-    ln -s "$(pwd)/walking_papers" ~/.qgis2/python/plugins/walking_papers
-
-Note that in order to use translations you would need to run `lrelease` on needed `*.ts` files.
+    make deploy
 
 ## Author and License
 
