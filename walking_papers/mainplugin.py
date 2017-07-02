@@ -286,7 +286,7 @@ class WalkingPapersPlugin(object):
             return
         filename = os.path.abspath(filename)
 
-        styleFile = os.path.join(self.path, 'wp_style.yaml')
+        styleFile = os.path.join(self.path, 'res', 'wp_style.yaml')
         with open(styleFile, 'r') as f:
             style = yaml.load(f)
         applyStyle(filename, style)
@@ -317,7 +317,7 @@ class WalkingPapersPlugin(object):
             cmd = ['ogr2ogr']
 
         cmd.extend(['--config', 'OSM_USE_CUSTOM_INDEXING', 'NO'])
-        iniFile = os.path.join(self.path, 'osmconf.ini')
+        iniFile = os.path.join(self.path, 'res', 'osmconf.ini')
         cmd.extend(['--config', 'OSM_CONFIG_FILE', iniFile])
         cmd.extend(['-t_srs', 'EPSG:3857'])
         cmd.extend(['-overwrite'])
