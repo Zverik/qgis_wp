@@ -26,3 +26,6 @@ zip: package
 deploy: package
 	if [ -d "$(QGIS_PLUGINS)/$(PLUGIN_NAME)" ]; then rm -r "$(QGIS_PLUGINS)/$(PLUGIN_NAME)"; fi
 	cp -r "$(BUILD_DIR)/$(PLUGIN_NAME)" "$(QGIS_PLUGINS)"
+
+trans:
+	for i in $(SRC_DIR)/i18n/*.ts; do pylupdate4 -noobsolete $(SRC_DIR)/mainplugin.py -ts "$$i"; done
