@@ -19,6 +19,6 @@ changelog=2017-07-01 0.1 Initial release
 
 tags=walking papers,openstreetmap,osm,printing,export,pie
 homepage=https://github.com/zverik/qgis_wp
-icon=walking_papers.png
+icon=icons/walking_papers.png
 experimental=false
 deprecated=false

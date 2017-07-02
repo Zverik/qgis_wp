@@ -82,7 +82,7 @@ class WalkingPapersPlugin(object):
         self.menu = QMenu(self.iface.mainWindow())
         self.menu.setObjectName("wpMenu")
         self.menu.setTitle(self.tr(u"Walking Papers"))
-        self.menu.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
+        self.menu.setIcon(QIcon(os.path.join(self.path, "icons", "walking_papers.svg")))
 
         downloadAction = QAction(self.tr(u"Download OSM Data"), self.iface.mainWindow())
         downloadAction.setObjectName("downloadOSM")
@@ -126,7 +126,7 @@ class WalkingPapersPlugin(object):
         self.toolButton = QToolButton()
         self.toolButton.setToolTip(self.tr(u"Walking Papers"))
         self.toolButton.setMenu(self.menu)
-        self.toolButton.setIcon(QIcon(os.path.join(self.path, "walking_papers.svg")))
+        self.toolButton.setIcon(QIcon(os.path.join(self.path, "icons", "walking_papers.svg")))
         self.toolButton.setPopupMode(QToolButton.InstantPopup)
         self.toolbarAction = self.iface.addToolBarWidget(self.toolButton)
 
