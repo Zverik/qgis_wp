@@ -3,7 +3,6 @@ name=Walking Papers
 email=ilya@zverev.info
 author=Ilya Zverev
 qgisMinimumVersion=2.14
-qgisMaximumVersion=2.99
 version=0.1
 repository=https://github.com/zverik/qgis_wp
 tracker=https://github.com/zverik/qgis_wp/issues
