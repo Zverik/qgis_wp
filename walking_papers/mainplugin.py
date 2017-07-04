@@ -19,6 +19,7 @@ from PyQt4.QtGui import (
     QFont,
     QIcon,
     QMenu,
+    QMessageBox,
     QToolButton,
 )
 from PyQt4.QtNetwork import (
@@ -222,7 +223,30 @@ class WalkingPapersPlugin(object):
                 return False
         return True
 
+    def checkCrs(self):
+        settings = self.iface.mapCanvas().mapSettings()
+        crs = settings.destinationCrs().authid()
+        if '3857' not in crs and '900913' not in crs:
+            # Suggest changing
+            answer = QMessageBox.question(
+                self.iface.mainWindow(),
+                self.tr(u'Projection Warning'),
+                self.tr(u'Your project\'s map projection may not preserve angles. '
+                        'This is bad for understanding the map in walking papers. '
+                        'Do you want to change it to EPSG:3857?'),
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+            if answer == QMessageBox.Yes:
+                self.iface.mapCanvas().setDestinationCrs(QgsCoordinateReferenceSystem(3857))
+                self.iface.mapCanvas().setCrsTransformEnabled(True)
+            elif answer == QMessageBox.Cancel:
+                return False
+        return True
+
     def createPie(self):
+        # This is a good place to check that the project crs is "equal angle"
+        if not self.checkCrs():
+            return
+
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
             layerUri = 'Polygon?crs=epsg:3857&field=name:string(30)&field=rotation:integer'
