@@ -34,6 +34,7 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsField,
     QgsFillSymbolV2,
+    QgsGeometry,
     QgsMapLayerRegistry,
     QgsMessageLog,
     QgsNetworkAccessManager,
@@ -50,7 +51,7 @@ import yaml
 PIE_LAYER = 'Pie Sheets'
 PLAN_LAYER = 'Pie Overview'
 DOWNLOAD_POLYGON_LAYER = 'OSM Download Area'
-ROTATION_FIELD = 'rotation'
+ROTATION_LAYER = 'Pie Sheets For Atlas'
 NAME_FIELD = 'name'
 
 
@@ -108,13 +109,6 @@ class WalkingPapersPlugin(object):
 
         self.menu.addSeparator()
 
-        rotateAction = QAction(self.tr(u"Calculate Pie Rotation"), self.iface.mainWindow())
-        rotateAction.setObjectName("calcRotation")
-        rotateAction.setStatusTip(
-            self.tr(u'Adds or updates a rotation column with degrees. Requires a pie sheets layer'))
-        rotateAction.triggered.connect(self.calcRotation)
-        self.menu.addAction(rotateAction)
-
         atlasAction = QAction(self.tr(u"Prepare Atlas"), self.iface.mainWindow())
         atlasAction.setObjectName("makeAtlas")
         atlasAction.setStatusTip(
@@ -135,7 +129,7 @@ class WalkingPapersPlugin(object):
         self.menu.deleteLater()
         self.iface.removeToolBarIcon(self.toolbarAction)
 
-    def calcRotation(self):
+    def createRotationLayer(self):
         pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
         if not pies:
             self.iface.messageBar().pushCritical(
@@ -149,36 +143,34 @@ class WalkingPapersPlugin(object):
         if pie.isEditable():
             self.iface.vectorLayerTools().saveEdits(pie)
 
-        rotIndex = pie.dataProvider().fieldNameIndex(ROTATION_FIELD)
-        if rotIndex < 0:
-            if not self.addFieldToLayer(pie, ROTATION_FIELD, QVariant.Int):
-                return
-            rotIndex = pie.dataProvider().fieldNameIndex(ROTATION_FIELD)
-
         boxes = runalg('qgis:orientedminimumboundingbox', pie, True, None)
-        boxesLayer = QgsVectorLayer(boxes['OUTPUT'], 'boxes_tmp', 'ogr')
+        boxesLayer = QgsVectorLayer(boxes['OUTPUT'], ROTATION_LAYER, 'ogr')
         if not boxesLayer.isValid():
             self.iface.messageBar().pushCritical(
                 self.tr(u'Access error'), self.tr(u'Failed to load a temporary processing layer.'))
             return
 
-        iterbox = boxesLayer.getFeatures()
-        for l in pie.getFeatures():
-            box = next(iterbox)
+        self.addFieldToLayer(boxesLayer, NAME_FIELD, QVariant.String)
+        rotIndex = boxesLayer.dataProvider().fieldNameIndex('ANGLE')
+        nameIndex = boxesLayer.dataProvider().fieldNameIndex(NAME_FIELD)
+        iterpie = pie.getFeatures()
+        for box in boxesLayer.getFeatures():
+            name = next(iterpie)['name']
             angle = round(box['ANGLE'])
             if box['WIDTH'] > box['HEIGHT']:
                 angle += 90 if angle < 0 else -90
-            pie.dataProvider().changeAttributeValues({l.id(): {rotIndex: angle}})
-        self.iface.messageBar().pushSuccess(
-            self.tr('Done'), self.tr(u'Pie rotation values were updated.'))
+            geom = QgsGeometry(box.geometry())
+            geom.rotate(angle, box.geometry().boundingBox().center())
+            boxesLayer.dataProvider().changeAttributeValues(
+                {box.id(): {rotIndex: angle, nameIndex: name}})
+            boxesLayer.dataProvider().changeGeometryValues({box.id(): geom})
+        QgsMapLayerRegistry.instance().addMapLayer(boxesLayer)
+        self.iface.legendInterface().setLayerVisible(boxesLayer, False)
+        self.iface.legendInterface().setLayerVisible(pie, False)
+        return boxesLayer
 
     def createAtlas(self):
-        pies = QgsMapLayerRegistry.instance().mapLayersByName(PIE_LAYER)
-        if not pies:
-            self.iface.messageBar().pushCritical(
-                self.tr(u'No layer'), self.tr(u'Please add "{}" layer.').format(PIE_LAYER))
-            return
-        pie = pies[0]
+        pie = self.createRotationLayer()
 
         # initialize composer
         view = self.iface.createNewComposer()
@@ -190,7 +182,7 @@ class WalkingPapersPlugin(object):
         atlasMap.setId('Map')
         atlasMap.setAtlasDriven(True)
         atlasMap.setAtlasMargin(0)
-        atlasMap.setDataDefinedProperty(QgsComposerObject.MapRotation, True, False, '', 'rotation')
+        atlasMap.setDataDefinedProperty(QgsComposerObject.MapRotation, True, False, '', 'ANGLE')
         comp.addComposerMap(atlasMap)
 
         label = QgsComposerLabel(comp)
@@ -254,8 +246,6 @@ class WalkingPapersPlugin(object):
             QgsMapLayerRegistry.instance().addMapLayer(pie)
         else:
             pie = pies[0]
-            if not self.addFieldToLayer(pie, ROTATION_FIELD, QVariant.Int):
-                return
             if not self.addFieldToLayer(pie, NAME_FIELD, QVariant.String):
                 return
 
