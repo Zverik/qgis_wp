@@ -3,7 +3,7 @@ name=Walking Papers
 email=ilya@zverev.info
 author=Ilya Zverev
 qgisMinimumVersion=2.14
-version=0.1
+version=0.2
 repository=https://github.com/zverik/qgis_wp
 tracker=https://github.com/zverik/qgis_wp/issues
 
@@ -14,7 +14,9 @@ about=This plugin does multiple things: downloads OSM data
   Basically, all you have to do is mark the area for a mapping party
   and draw sheets: after that you'll get a PDF ready for printing.
 
-changelog=2017-07-01 0.1 Initial release
+changelog=
+  2017-07-05 0.2 Better rotation handling, crs warning
+  2017-07-03 0.1 Initial release
 
 tags=walking papers,openstreetmap,osm,printing,export,pie
 homepage=https://github.com/zverik/qgis_wp
